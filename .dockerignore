@@ -1,0 +1,9 @@
+# Ignore the local dependencies, as they will be installed inside the container
+node_modules
+
+# Ignore Dockerfile itself and local environment files
+Dockerfile
+.env
+
+# Ignore git folder
+.git
