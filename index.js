@@ -77,10 +77,10 @@ async function performLogin() {
         await client.post(LOGIN_URL, loginData);
         
         console.log('🎉 Login Successful!');
-        await sendNotification('✅ Successful Login at 9:30 AM', 'The automated script has successfully logged in.');
+        await sendNotification('✅ Successful Login', 'The automated script has successfully logged in.');
     } catch (error) {
         console.error('❌ LOGIN FAILED:', error.message);
-        await sendNotification('❌ Login Failed at 9:30 AM', `The script failed to log in. Error: ${error.message}`);
+        await sendNotification('❌ Login Failed', `The script failed to log in. Error: ${error.message}`);
     }
 }
 
@@ -90,20 +90,22 @@ async function performLogin() {
 async function performLogout() {
     console.log('--- Attempting to LOGOUT ---');
     try {
+        // NOTE: This GET request effectively "refreshes" the page before finding the logout token.
         const pageResponse = await client.get(ACTIVITY_PAGE_URL);
         const $ = cheerio.load(pageResponse.data);
-        const token = $('form[action="/Activity/Logout"] input[name="__RequestVerification_Token"]').val();
+        // CRITICAL FIX: Corrected the typo in the token name from the original code
+        const token = $('form[action="/Activity/Logout"] input[name="__RequestVerificationToken"]').val(); 
         
         if (!token) throw new Error("Could not find logout token.");
         
-        const logoutData = new URLSearchParams({ '__RequestVerificationToken': token, 'password': 'SLN8t5i' });
+        const logoutData = new URLSearchParams({ '__RequestVerificationToken': token });
         await client.post(LOGOUT_URL, logoutData);
         
         console.log('👋 Logout Successful!');
-        await sendNotification('👋 Successful Logout at 6:30 PM', 'The automated script has successfully logged out.');
+        await sendNotification('👋 Successful Logout', 'The automated script has successfully logged out.');
     } catch (error) {
         console.error('❌ LOGOUT FAILED:', error.message);
-        await sendNotification('❌ Logout Failed at 6:30 PM', `The script failed to log out. Error: ${error.message}`);
+        await sendNotification('❌ Logout Failed', `The script failed to log out. Error: ${error.message}`);
     }
 }
 
@@ -126,13 +128,15 @@ async function startService() {
     // All schedules are in Indian Standard Time (IST)
     const timeZone = 'Asia/Kolkata';
 
-    // Schedule 1: Login at 9:30 AM IST every day
-    cron.schedule('30 9 * * *', performLogin, { timezone: timeZone });
+    // Schedule 1: Login at 9:30 AM IST, Monday to Saturday (1-6)
+    // MODIFIED: Added "1-6" to the end of the cron string to skip Sunday (0).
+    cron.schedule('30 9 * * 1-6', performLogin, { timezone: timeZone });
 
-    // Schedule 2: Logout at 18:30 (6:30 PM) IST every day
-    cron.schedule('30 18 * * *', performLogout, { timezone: timeZone });
+    // Schedule 2: Logout at 18:30 (6:30 PM) IST, Monday to Saturday (1-6)
+    // MODIFIED: Added "1-6" to the end of the cron string to skip Sunday (0).
+    cron.schedule('30 18 * * 1-6', performLogout, { timezone: timeZone });
 
-    // Schedule 3: Monitor every 30 minutes
+    // Schedule 3: Monitor every 30 minutes (runs every day including Sunday)
     cron.schedule('*/30 * * * *', async () => {
         console.log('🕒 [Monitor] Checking website status...');
         const isStillLive = await checkWebsiteStatus();
@@ -141,7 +145,7 @@ async function startService() {
         }
     }, { timezone: timeZone });
     
-    console.log('✅ All jobs scheduled. The service is now running.');
+    console.log('✅ All jobs scheduled. Login/Logout will be skipped on Sundays. The service is now running.');
 }
 
 // Start the whole process
